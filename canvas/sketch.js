@@ -2,36 +2,58 @@ const GRID_SIZE = 15;
 const BASE_CELL_SIZE = 60;
 const BASE_GRID_WIDTH = GRID_SIZE * BASE_CELL_SIZE;
 const BASE_GRID_HEIGHT = GRID_SIZE * BASE_CELL_SIZE;
-const MARGIN = 50;
+const MARGIN = 70;
 const DOT_SPACING = 1.5;
 
-let rippleCenters;
+let ripples;
+let rippleParams;
+
+function generateRipples() {
+  const centers = [];
+  const num = floor(random(3, 6));
+
+  for (let i = 0; i < num; i++) {
+    centers.push({
+      x: BASE_GRID_WIDTH / 2 + random(-150, 150),
+      y: BASE_GRID_HEIGHT / 2 + random(-150, 150),
+    });
+  }
+  return centers;
+}
+
+function generateParams(count) {
+  const params = [];
+  const minDimension = min(BASE_GRID_WIDTH, BASE_GRID_HEIGHT);
+
+  for (let i = 0; i < count; i++) {
+    params.push({
+      baseStrength: random(0.1, 0.3),
+      strengthVariation: random(0.02, 0.06),
+      baseRadius: minDimension * random(0.3, 0.6),
+      radiusVariation: random(0.08, 0.15),
+      timeMultiplier: random(3, 5),
+      phaseOffset: random(0, TWO_PI),
+      breathingMultiplier: random(1.2, 2.1),
+    });
+  }
+
+  return params;
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-
-  rippleCenters = [
-    {
-      x: BASE_GRID_WIDTH / 2,
-      y: BASE_GRID_HEIGHT / 2,
-    },
-    {
-      x: BASE_GRID_WIDTH / 2 - 110,
-      y: BASE_GRID_HEIGHT / 2 + 80,
-    },
-    {
-      x: BASE_GRID_WIDTH / 2 + 100,
-      y: BASE_GRID_HEIGHT / 2 - 60,
-    },
-    {
-      x: BASE_GRID_WIDTH / 2 - 80,
-      y: BASE_GRID_HEIGHT / 2 - 100,
-    },
-  ];
+  frameRate(30);
+  ripples = generateRipples();
+  rippleParams = generateParams(ripples.length);
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+}
+
+function mousePressed() {
+  ripples = generateRipples();
+  rippleParams = generateParams(ripples.length);
 }
 
 function draw() {
@@ -53,96 +75,61 @@ function draw() {
   const startX = 0;
   const startY = 0;
 
-  const time = millis() * 0.0003;
+  const wavePhase = millis() * 0.0003;
   const breathingTime = millis() * 0.00005;
   const heartbeatTime = millis() / 1600.0;
-  const heartbeatPhase = heartbeatTime % 1.0; // 0 to 1 every second
-  let heartbeatPulse = 0;
+  const beatPhase = heartbeatTime % 1.0; // 0 to 1 every second
+  let pulse = 0;
 
   // Two-phase heartbeat with sharper easing
-  if (heartbeatPhase < 0.08) {
+  if (beatPhase < 0.08) {
     // First beat - very quick rise with sharp ease-out
-    const t = heartbeatPhase / 0.08;
-    heartbeatPulse = pow(t, 0.15) * 0.3; // Sharper ease out - very quick start
-  } else if (heartbeatPhase < 0.11) {
+    const t = beatPhase / 0.08;
+    pulse = pow(t, 0.15) * 0.3; // Sharper ease out - very quick start
+  } else if (beatPhase < 0.11) {
     // Sharp fall with strong ease-in
-    const t = (heartbeatPhase - 0.08) / 0.03;
-    heartbeatPulse = (1 - pow(t, 3)) * 0.35; // Stronger ease in - sharper fall
-  } else if (heartbeatPhase < 0.22) {
+    const t = (beatPhase - 0.08) / 0.03;
+    pulse = (1 - pow(t, 3)) * 0.35; // Stronger ease in - sharper fall
+  } else if (beatPhase < 0.22) {
     // Second smaller beat - quick and punchy
-    const t = (heartbeatPhase - 0.15) / 0.07;
+    const t = (beatPhase - 0.15) / 0.07;
     const secondBeat = sin(t * PI) * 0.18;
-    heartbeatPulse = secondBeat * pow(1 - t, 0.5); // Fade out effect
+    pulse = secondBeat * pow(1 - t, 0.5); // Fade out effect
   }
 
-  const heartbeatFactor = 1 + heartbeatPulse;
+  const heartbeatFactor = 1 + pulse;
   const breathingFactor = sin(breathingTime) * 0.7 + 0.9;
   const minDimension = min(BASE_GRID_WIDTH, BASE_GRID_HEIGHT);
 
-  const rippleParams = [
-    {
-      strength:
-        (0.25 * breathingFactor + sin(time * 4) * 0.05) * heartbeatFactor,
-      radius:
-        minDimension *
-        (0.5 + sin(breathingTime * 1.2) * 0.15) *
-        (1 + heartbeatPulse * 0.3),
-      radiusSquared: 0,
-    },
-    {
-      strength:
-        (0.2 * breathingFactor + sin(time * 3.5 + PI / 4) * 0.04) *
-        heartbeatFactor,
-      radius:
-        minDimension *
-        (0.45 + sin(breathingTime * 1.5 + PI / 4) * 0.12) *
-        (1 + heartbeatPulse * 0.3),
-      radiusSquared: 0,
-    },
-    {
-      strength:
-        (0.1 * breathingFactor + sin(time * 3.5 + PI / 4) * 0.05) *
-        heartbeatFactor,
-      radius:
-        minDimension *
-        (0.45 + sin(breathingTime * 1.5 + PI / 4) * 0.12) *
-        (1 + heartbeatPulse * 0.3),
-      radiusSquared: 0,
-    },
-    {
-      strength:
-        (0.18 * breathingFactor + sin(time * 4.2 + PI / 2) * 0.03) *
-        heartbeatFactor,
-      radius:
-        minDimension *
-        (0.4 + sin(breathingTime * 1.8 + PI / 2) * 0.1) *
-        (1 + heartbeatPulse * 0.3),
-      radiusSquared: 0,
-    },
-    {
-      strength:
-        (0.15 * breathingFactor + sin(time * 3.8 + PI) * 0.02) *
-        heartbeatFactor,
-      radius:
-        minDimension *
-        (0.35 + sin(breathingTime * 2.1 + PI) * 0.08) *
-        (1 + heartbeatPulse * 0.3),
-      radiusSquared: 0,
-    },
-  ];
-
+  const dynamicRippleParams = [];
   for (let i = 0; i < rippleParams.length; i++) {
-    rippleParams[i].radiusSquared =
-      rippleParams[i].radius * rippleParams[i].radius;
+    const param = rippleParams[i];
+    const strength =
+      (param.baseStrength * breathingFactor +
+        sin(wavePhase * param.timeMultiplier + param.phaseOffset) *
+          param.strengthVariation) *
+      heartbeatFactor;
+    const radius =
+      minDimension *
+      (param.baseRadius / minDimension +
+        sin(breathingTime * param.breathingMultiplier + param.phaseOffset) *
+          param.radiusVariation) *
+      (1 + pulse * 0.3);
+
+    dynamicRippleParams.push({
+      strength,
+      radius,
+      radiusSquared: radius * radius,
+    });
   }
 
-  function applyMultipleFisheye(x, y) {
+  function applyFisheye(x, y) {
     let resultX = x;
     let resultY = y;
 
-    for (let i = 0; i < rippleCenters.length; i++) {
-      const center = rippleCenters[i];
-      const params = rippleParams[i];
+    for (let i = 0; i < ripples.length; i++) {
+      const center = ripples[i];
+      const params = dynamicRippleParams[i];
 
       const dx = resultX - center.x;
       const dy = resultY - center.y;
@@ -162,18 +149,18 @@ function draw() {
     return { x: resultX, y: resultY };
   }
 
-  const shakeIntensity = heartbeatPulse * 2;
+  const shakeIntensity = pulse * 2;
   const noiseTime = millis() * 0.01;
   const shakeX = (noise(noiseTime, 0) - 0.5) * shakeIntensity;
   const shakeY = (noise(noiseTime, 100) - 0.5) * shakeIntensity;
 
   const baseDotSize = 1 / scaleFactor;
-  const dotSizePulse = 1 + heartbeatPulse * 3;
+  const dotSizePulse = 1 + pulse * 3;
 
   for (let i = 0; i <= GRID_SIZE; i++) {
     const baseX = startX + i * BASE_CELL_SIZE;
     for (let y = startY; y <= startY + BASE_GRID_HEIGHT; y += DOT_SPACING * 2) {
-      const distorted = applyMultipleFisheye(baseX, y);
+      const distorted = applyFisheye(baseX, y);
       strokeWeight(baseDotSize * dotSizePulse);
       point(distorted.x + shakeX, distorted.y + shakeY);
     }
@@ -182,7 +169,7 @@ function draw() {
   for (let i = 0; i <= GRID_SIZE; i++) {
     const baseY = startY + i * BASE_CELL_SIZE;
     for (let x = startX; x <= startX + BASE_GRID_WIDTH; x += DOT_SPACING * 2) {
-      const distorted = applyMultipleFisheye(x, baseY);
+      const distorted = applyFisheye(x, baseY);
       strokeWeight(baseDotSize * dotSizePulse);
       point(distorted.x + shakeX, distorted.y + shakeY);
     }
