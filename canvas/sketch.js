@@ -1,5 +1,33 @@
+const GRID_SIZE = 15;
+const BASE_CELL_SIZE = 60;
+const BASE_GRID_WIDTH = GRID_SIZE * BASE_CELL_SIZE;
+const BASE_GRID_HEIGHT = GRID_SIZE * BASE_CELL_SIZE;
+const MARGIN = 50;
+const DOT_SPACING = 1.5;
+
+let rippleCenters;
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
+
+  rippleCenters = [
+    {
+      x: BASE_GRID_WIDTH / 2,
+      y: BASE_GRID_HEIGHT / 2,
+    },
+    {
+      x: BASE_GRID_WIDTH / 2 - 110,
+      y: BASE_GRID_HEIGHT / 2 + 80,
+    },
+    {
+      x: BASE_GRID_WIDTH / 2 + 100,
+      y: BASE_GRID_HEIGHT / 2 - 60,
+    },
+    {
+      x: BASE_GRID_WIDTH / 2 - 80,
+      y: BASE_GRID_HEIGHT / 2 - 100,
+    },
+  ];
 }
 
 function windowResized() {
@@ -11,31 +39,19 @@ function draw() {
 
   push();
 
-  const gridSize = 15;
-  const baseCellSize = 60;
-  const baseGridWidth = gridSize * baseCellSize;
-  const baseGridHeight = gridSize * baseCellSize;
-
-  const margin = 50;
-  const scaleX = (width - margin * 2) / baseGridWidth;
-  const scaleY = (height - margin * 2) / baseGridHeight;
+  const scaleX = (width - MARGIN * 2) / BASE_GRID_WIDTH;
+  const scaleY = (height - MARGIN * 2) / BASE_GRID_HEIGHT;
   const scaleFactor = min(scaleX, scaleY, 1);
 
   translate(width / 2, height / 2);
   scale(scaleFactor);
-  translate(-baseGridWidth / 2, -baseGridHeight / 2);
+  translate(-BASE_GRID_WIDTH / 2, -BASE_GRID_HEIGHT / 2);
 
   stroke(245);
   strokeWeight(1 / scaleFactor);
 
-  const cellSize = baseCellSize;
-  const gridWidth = baseGridWidth;
-  const gridHeight = baseGridHeight;
-
   const startX = 0;
   const startY = 0;
-
-  const dotSpacing = 1.5;
 
   const time = millis() * 0.0003;
   const breathingTime = millis() * 0.00005;
@@ -60,74 +76,65 @@ function draw() {
   }
 
   const heartbeatFactor = 1 + heartbeatPulse;
-
-  const rippleCenters = [
-    {
-      x: baseGridWidth / 2,
-      y: baseGridHeight / 2,
-    },
-    {
-      x: baseGridWidth / 2 - 110,
-      y: baseGridHeight / 2 + 80,
-    },
-    {
-      x: baseGridWidth / 2 + 100,
-      y: baseGridHeight / 2 - 60,
-    },
-    {
-      x: baseGridWidth / 2 - 80,
-      y: baseGridHeight / 2 - 100,
-    },
-  ];
-
   const breathingFactor = sin(breathingTime) * 0.7 + 0.9;
+  const minDimension = min(BASE_GRID_WIDTH, BASE_GRID_HEIGHT);
 
   const rippleParams = [
     {
       strength:
         (0.25 * breathingFactor + sin(time * 4) * 0.05) * heartbeatFactor,
       radius:
-        min(gridWidth, gridHeight) *
+        minDimension *
         (0.5 + sin(breathingTime * 1.2) * 0.15) *
         (1 + heartbeatPulse * 0.3),
+      radiusSquared: 0,
     },
     {
       strength:
         (0.2 * breathingFactor + sin(time * 3.5 + PI / 4) * 0.04) *
         heartbeatFactor,
       radius:
-        min(gridWidth, gridHeight) *
+        minDimension *
         (0.45 + sin(breathingTime * 1.5 + PI / 4) * 0.12) *
         (1 + heartbeatPulse * 0.3),
+      radiusSquared: 0,
     },
     {
       strength:
         (0.1 * breathingFactor + sin(time * 3.5 + PI / 4) * 0.05) *
         heartbeatFactor,
       radius:
-        min(gridWidth, gridHeight) *
+        minDimension *
         (0.45 + sin(breathingTime * 1.5 + PI / 4) * 0.12) *
         (1 + heartbeatPulse * 0.3),
+      radiusSquared: 0,
     },
     {
       strength:
         (0.18 * breathingFactor + sin(time * 4.2 + PI / 2) * 0.03) *
         heartbeatFactor,
       radius:
-        min(gridWidth, gridHeight) *
+        minDimension *
         (0.4 + sin(breathingTime * 1.8 + PI / 2) * 0.1) *
         (1 + heartbeatPulse * 0.3),
+      radiusSquared: 0,
     },
     {
       strength:
         (0.15 * breathingFactor + sin(time * 3.8 + PI) * 0.02) *
         heartbeatFactor,
       radius:
-        min(gridWidth, gridHeight) *
+        minDimension *
         (0.35 + sin(breathingTime * 2.1 + PI) * 0.08) *
         (1 + heartbeatPulse * 0.3),
+      radiusSquared: 0,
     },
   ];
+
+  for (let i = 0; i < rippleParams.length; i++) {
+    rippleParams[i].radiusSquared =
+      rippleParams[i].radius * rippleParams[i].radius;
+  }
 
   function applyMultipleFisheye(x, y) {
     let resultX = x;
@@ -139,9 +146,10 @@ function draw() {
 
       const dx = resultX - center.x;
       const dy = resultY - center.y;
-      const distance = sqrt(dx * dx + dy * dy);
+      const distanceSquared = dx * dx + dy * dy;
 
-      if (distance < params.radius) {
+      if (distanceSquared < params.radiusSquared) {
+        const distance = sqrt(distanceSquared);
         const normalizedDist = distance / params.radius;
         const distortionFactor =
           1 + params.strength * (1 - normalizedDist * normalizedDist);
@@ -154,26 +162,30 @@ function draw() {
     return { x: resultX, y: resultY };
   }
 
-  // Grid shake effect synchronized with heartbeat
   const shakeIntensity = heartbeatPulse * 2;
-  const shakeX = (noise(millis() * 0.01, 0) - 0.5) * shakeIntensity;
-  const shakeY = (noise(millis() * 0.01, 100) - 0.5) * shakeIntensity;
+  const noiseTime = millis() * 0.01;
+  const shakeX = (noise(noiseTime, 0) - 0.5) * shakeIntensity;
+  const shakeY = (noise(noiseTime, 100) - 0.5) * shakeIntensity;
 
-  for (let i = 0; i <= gridSize; i++) {
-    const baseX = startX + i * cellSize;
-    for (let y = startY; y <= startY + gridHeight; y += dotSpacing * 2) {
+  const baseDotSize = 1 / scaleFactor;
+  const dotSizePulse = 1 + heartbeatPulse * 3;
+
+  for (let i = 0; i <= GRID_SIZE; i++) {
+    const baseX = startX + i * BASE_CELL_SIZE;
+    for (let y = startY; y <= startY + BASE_GRID_HEIGHT; y += DOT_SPACING * 2) {
       const distorted = applyMultipleFisheye(baseX, y);
+      strokeWeight(baseDotSize * dotSizePulse);
       point(distorted.x + shakeX, distorted.y + shakeY);
     }
   }
 
-  for (let i = 0; i <= gridSize; i++) {
-    const baseY = startY + i * cellSize;
-    for (let x = startX; x <= startX + gridWidth; x += dotSpacing * 2) {
+  for (let i = 0; i <= GRID_SIZE; i++) {
+    const baseY = startY + i * BASE_CELL_SIZE;
+    for (let x = startX; x <= startX + BASE_GRID_WIDTH; x += DOT_SPACING * 2) {
       const distorted = applyMultipleFisheye(x, baseY);
+      strokeWeight(baseDotSize * dotSizePulse);
       point(distorted.x + shakeX, distorted.y + shakeY);
     }
   }
-
   pop();
 }
